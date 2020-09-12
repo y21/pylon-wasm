@@ -6,7 +6,12 @@ static void greet(MessageEvent* message, const char* args) {
     char response[2000];
     sprintf(response, "hello %s!", args);
 
-    reply_raw(message->task_id, response);
+    MessageData d = {
+        .content = response,
+        .flags = MSG_DISABLE_ALL
+    };
+
+    reply(message->task_id, &d);
 }
 
 int wasm_main() {

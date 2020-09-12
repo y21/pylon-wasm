@@ -1,6 +1,15 @@
 #ifndef __DISCORD_PWASM__
 #define __DISCORD_PWASM__
 
+// Flags
+enum {
+    // Mentions
+    MSG_DISABLE_EVERYONE = 1 << 0,
+    MSG_DISABLE_ROLES = 1 << 1,
+    MSG_DISABLE_USERS = 1 << 2,
+    MSG_DISABLE_ALL = 1 << 3
+};
+
 typedef struct {
     unsigned int task_id;
 
@@ -10,6 +19,7 @@ typedef struct {
 
 typedef struct {
     const char* content;
+    unsigned int flags;
 } MessageData;
 
 void reply(unsigned short task_id, MessageData* data);
