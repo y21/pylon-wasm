@@ -8,7 +8,7 @@ static void greet(MessageEvent* message, const char* args) {
 
     MessageData d = {
         .content = response,
-        .flags = MSG_DISABLE_ALL
+        .flags = MSG_DISABLE_EVERYONE | MSG_DISABLE_USERS // disallow @everyone and @user
     };
 
     reply(message->task_id, &d);
