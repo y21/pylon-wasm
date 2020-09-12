@@ -73,7 +73,7 @@ export class PylonWasm {
 
     const ptr = this.__malloc_str__(message.content);
 
-    if (ptr === -1) {
+    if (ptr === 0) {
       throw new Error('Memory allocation failed');
     }
 
@@ -195,8 +195,10 @@ export class PylonWasm {
    * Returns -1 if `wasm` is not yet loaded.
    */
   private __malloc_str__(value: string): number {
-    if (!this.wasm) return -1;
-    const ptr = this.wasm.instance.exports.malloc(value.length);
+    if (!this.wasm) return 0;
+    const ptr = this.wasm.instance.exports.malloc(value.length + 1);
+    if (ptr === 0) return 0; // malloc failed
+
     this.__set_ptr__(ptr, value);
     return ptr;
   }
