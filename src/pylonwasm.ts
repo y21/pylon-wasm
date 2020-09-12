@@ -6,6 +6,36 @@ interface EventQueueItem<T = any> {
   item: T;
 }
 
+const enum IntSize {
+  UINT8 = 1 << 0,
+  UINT16 = 1 << 1,
+  UINT32 = 1 << 2,
+  UINT64 = 1 << 3
+}
+
+const enum MessageOptions {
+  DISABLE_EVERYONE = 1 << 0,
+  DISABLE_ROLES = 1 << 1,
+  DISABLE_USERS = 1 << 2,
+  DISABLE_ALL = 1 << 3
+}
+
+function hasFlag(all: number, bit: number) {
+  return (all & bit) === bit;
+}
+
+function flagsToMentions(flags: number): discord.Message.IAllowedMentions {
+  const hasMention = hasFlag.bind(null, flags);
+
+  if (hasMention(MessageOptions.DISABLE_ALL)) return {};
+
+  return {
+    everyone: !hasMention(MessageOptions.DISABLE_EVERYONE),
+    roles: hasMention(MessageOptions.DISABLE_ROLES) ? [] : true,
+    users: hasMention(MessageOptions.DISABLE_USERS) ? [] : true
+  };
+}
+
 class EventQueue {
   private highest: number = 0;
   public queue: Map<number, EventQueueItem> = new Map();
@@ -114,14 +144,6 @@ export class PylonWasm {
   private async __load_wasm__(source: ArrayBuffer) {
     // @ts-ignore
     this.wasm = await WebAssembly.instantiate(source, {
-      memory: new WebAssembly.Memory({
-        initial: 0xff,
-        maximum: 0xff
-      }),
-      table: new WebAssembly.Table({
-        initial: 0,
-        element: 'anyfunc'
-      }),
       env: {
         ext_send_message: this.__wasm_send_message__.bind(this),
         ext_log: this.__wasm_log__.bind(this)
@@ -150,6 +172,7 @@ export class PylonWasm {
   /**
    * Gets a value by its pointer (address in wasm memory).
    */
+
   private __get_ptr__(
     ptr: number,
     len: number,
@@ -171,14 +194,9 @@ export class PylonWasm {
   private __set_ptr__(ptr: number, val: any): boolean {
     if (!this.dv) return false;
 
-    // TODO: support more types
     switch (val.constructor) {
       case String:
-        for (let i = 0; i < val.length; ++i) {
-          this.dv.setUint8(ptr + i, val.charCodeAt(i));
-        }
-
-        this.dv.setUint8(ptr + val.length, 0); // null terminate c-string
+        __set_ptr_str__(this.dv, ptr, val);
         break;
       default:
         this.__handle_wasm_error__(
@@ -195,12 +213,14 @@ export class PylonWasm {
   }
 
   /**
-   * Allocates memory for a string, sets the value in memory and returns the address, expecting the caller to free memory(!)
-   * Returns -1 if `wasm` is not yet loaded.
+   * Allocates heap memory for a string, sets the value in memory and returns the address, expecting the caller to free memory(!)
+   * Returns 0 if `wasm` is not yet loaded, or if memory allocation failed.
    */
   private __malloc_str__(value: string): number {
     if (!this.wasm) return 0;
-    const ptr = this.wasm.instance.exports.malloc(value.length + 1);
+    const ptr = this.wasm.instance.exports.malloc(
+      value.length * IntSize.UINT8 + 1
+    );
     if (ptr === 0) return 0; // malloc failed
 
     this.__set_ptr__(ptr, value);
@@ -213,6 +233,7 @@ export class PylonWasm {
    */
   private async __wasm_send_message__(
     task_id: number,
+    flags: number,
     ct_ptr: number,
     ct_len: number
   ) {
@@ -230,7 +251,7 @@ export class PylonWasm {
 
     channel.sendMessage({
       content,
-      allowedMentions: {}
+      allowedMentions: flagsToMentions(flags)
     });
   }
 
@@ -249,4 +270,12 @@ export class PylonWasm {
   private __handle_wasm_error__(e: Error, task_id?: number) {
     console.error(`[pylonpp${task_id ? `-${task_id}` : ''}]`, e);
   }
+}
+
+function __set_ptr_str__(dv: DataView, ptr: number, val: string) {
+  for (let i = 0; i < val.length; ++i) {
+    dv.setUint8(ptr + i, val.charCodeAt(i));
+  }
+
+  dv.setUint8(ptr + val.length, 0); // null terminate c-string
 }
