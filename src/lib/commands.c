@@ -48,10 +48,15 @@ void process_commands(MessageEvent* message) {
             continue;
         }
 
+        if (strlen(message->content) <= prefix_len + cmd_len) {
+            cmd.run(message, "");
+            return;
+        }
+
         // messages can only have 2000 characters, so we allocate 2000 bytes
-        // using a char array because stack allocation is faster
         char args[2000];
-        strcpy(args, &(message->content)[prefix_len + cmd_len + 1]);
+        strncpy(args, &(message->content)[prefix_len + cmd_len + 1], 1999);
+        args[1999] = '\0';
 
         cmd.run(message, args);
     }
