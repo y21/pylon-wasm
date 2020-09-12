@@ -10,7 +10,7 @@
 // WebAssembly only allows "numerical" values to be passed around, so we call external functions
 // with pointers and length as parameters
 
-void ext_send_message(unsigned int task_id, const char* ct_ptr, unsigned short ct_len);
+void ext_send_message(unsigned int task_id, unsigned int flags, const char* ct_ptr, unsigned short ct_len);
 
 void ext_log(const char* log_ptr, unsigned short log_len);
 

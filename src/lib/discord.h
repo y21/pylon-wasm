@@ -10,6 +10,11 @@ enum {
     MSG_DISABLE_ALL = 1 << 3
 };
 
+enum {
+    EVENT_MESSAGE_CREATE = 0,
+    EVENT_MESSAGE_DELETE = 1
+};
+
 typedef struct {
     unsigned int task_id;
 
