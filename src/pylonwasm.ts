@@ -1,9 +1,9 @@
 // Used to decode typed arrays (-> string)
 const decoder = new TextDecoder();
 
-interface EventQueueItem {
+interface EventQueueItem<T = any> {
   id?: number;
-  item: object;
+  item: T;
 }
 
 class EventQueue {
@@ -18,6 +18,10 @@ class EventQueue {
     this.queue.set(id, Object.assign(data, { id }));
 
     return id;
+  }
+
+  public get<T>(taskId: number): EventQueueItem<T> | undefined {
+    return this.queue.get(taskId);
   }
 
   public done(taskId: number) {
@@ -73,7 +77,7 @@ export class PylonWasm {
 
     const ptr = this.__malloc_str__(message.content);
 
-    if (ptr === -1) {
+    if (ptr === 0) {
       throw new Error('Memory allocation failed');
     }
 
@@ -195,8 +199,10 @@ export class PylonWasm {
    * Returns -1 if `wasm` is not yet loaded.
    */
   private __malloc_str__(value: string): number {
-    if (!this.wasm) return -1;
-    const ptr = this.wasm.instance.exports.malloc(value.length);
+    if (!this.wasm) return 0;
+    const ptr = this.wasm.instance.exports.malloc(value.length + 1);
+    if (ptr === 0) return 0; // malloc failed
+
     this.__set_ptr__(ptr, value);
     return ptr;
   }
@@ -210,16 +216,14 @@ export class PylonWasm {
     ct_ptr: number,
     ct_len: number
   ) {
-    const event = this.eventQueue.queue.get(task_id);
+    const event = this.eventQueue.get<discord.Message>(task_id);
     if (!event) return this.__handle_wasm_error__(new Error('Task not found.'));
 
     const content = <string | null>this.__get_ptr__(ct_ptr, ct_len, true);
     if (content === null)
       return this.__handle_wasm_error__(new Error('Invalid address'));
 
-    const channel = await discord.getGuildTextChannel(
-      (<discord.Message>event.item).channelId
-    );
+    const channel = await discord.getGuildTextChannel(event.item.channelId);
 
     if (!channel)
       return this.__handle_wasm_error__(new Error('Channel not found'));
